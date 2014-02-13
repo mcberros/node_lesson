@@ -1,14 +1,20 @@
-var http = require('http');
-fs = require('fs');
+var http = require('http'),
+			url = require('url'),
+			fs = require('fs');
 
 // albums/italy2012.json
 
 function handle_incoming_request(req, res){
+
 	console.log("Incoming request: (" + req.method + ")" + req.url);
 
-	if(req.url == '/albums.json') {
+	req.parsed_url = url.parse(req.url, true);
+
+	var core_url = req.parsed_url.pathname;
+
+	if(core_url == '/albums.json') {
 		handle_load_albums(req, res);
-	} else if (req.url.substr(0, 7) == '/albums' && req.url.substr(req.url.length - 5) == '.json') {
+	} else if (core_url.substr(0, 7) == '/albums' && core_url.substr(core_url.length - 5) == '.json') {
 		handle_get_album(req, res);
 	} else {
 		res.writeHead(404, { "Content-Type": "application/json" });
@@ -17,11 +23,17 @@ function handle_incoming_request(req, res){
 }
 
 function handle_get_album(req, res) {
-	var album_name = req.url.slice(8, req.url.length - 5);
 
-	console.log(album_name);
+	var core_url = req.parsed_url.pathname;
+	var album_name = core_url.slice(8, core_url.length - 5);
 
-	load_album(album_name, function(err, album) {
+	var page = parseInt(req.parsed_url.query.page);
+	var page_size = parseInt(req.parsed_url.query.page_size);
+
+	if (isNaN(page) || page<=0 ) page=0;
+	if (isNaN(page_size) || page_size<=0 ) page_size=0;
+
+	load_album(album_name, page, page_size, function(err, album) {
 
 		if (err != null) {
 			res.writeHead(503, { "Content-Type" : "application/json" });
@@ -34,7 +46,7 @@ function handle_get_album(req, res) {
 	});
 }
 
-function load_album(album_name, callback){
+function load_album(album_name, page, page_size, callback){
 	fs.readdir('albums/' + album_name, function (err, file_list) {
  		if (err) {
  			callback(err);
@@ -44,9 +56,10 @@ function load_album(album_name, callback){
  		var files_only = [];
 
  		(function iterator (i) {
- 			if (i >= file_list.length)
- 				callback(null, files_only);
- 			else {
+ 			if (i >= file_list.length) {
+ 				var phots = files_only.splice(page * page_size, page_size);
+ 				callback(null, phots);
+ 			} else {
  				fs.stat("albums/" + album_name + "/" + file_list[i], function (err, stats) {
  				if (err) {
  					callback(err);
@@ -65,8 +78,6 @@ function load_album(album_name, callback){
 
 function handle_load_albums(req, res) {
 	load_album_list(function(err, albums) {
-		console.log(albums);
-   	console.log(err);
 
 		if (err != null) {
 			res.writeHead(503, { "Content-Type" : "application/json" });
