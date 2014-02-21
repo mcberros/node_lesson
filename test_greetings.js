@@ -1,7 +1,4 @@
-var greeter = require('./greeter');
+var Greeter = require('./greeter');
 
-var g = greeter.create_greeter('it');
+var g = new Greeter("it");
 console.log(g.greet());
-
-//console.log(greeter.hello_world("en"));
-//console.log(greeter.goodbye("fr"));
